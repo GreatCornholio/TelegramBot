@@ -5,8 +5,7 @@ This Bot uses the Updater class to handle the bot.
 First, a few handler functions are defined. Then, those functions are passed to
 the Dispatcher and registered at their respective places.
 Then, the bot is started and runs until we press Ctrl-C on the command line.
-Usage:
-Basic Echobot example, repeats messages.
+
 Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
@@ -18,6 +17,9 @@ import logging
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from telegram.user import User
 
+from lxml import html
+
+
 # Enable logging
 logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -25,13 +27,14 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
-# Define a few command handlers. These usually take the two arguments bot and
+# Command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
 def start(bot, update):
     bot.sendMessage(update.message.chat_id, text='Hi!')
-    print("start")
-
+    logger.info("start")
 
 def help(bot, update):
     bot.sendMessage(update.message.chat_id, text=
@@ -42,65 +45,25 @@ def help(bot, update):
 /usdrub - получить текущий usdrub forex
 /eurrub - получить текущий eurrub forex
 /trans <...text...>  - хуефикация (ввести фразу после команды /trans)
-/weather - пока погода слабенькая, но что бог послал
-#/wu - weather underground точнее по осадкам, но в данный момент неправильно считает текущий час. если он показывает 2, то это значит, что строчка прогноза на 5 часов
+#не работает weather - пока погода слабенькая, но что бог послал
+/wu - weather underground точнее по осадкам
 
-в планах:
-- погода в клг на несколько дней.
-- погода в клг по часам на день
-
-баги отправлять @sovinogaz
 """)
-    print("help")
-
-def huefy(text, target, result):
-    m = re.search(".*\s+?(.*" + target + ")\s*.*|^(.*" + target + ")\s*.*", text)
-    if m != None:
-        before = m.group(1)
-        if before ==None:
-            before = m.group(2)
-        after = result
-        txt = before + " - " + after
-        #bot.sendMessage(update.message.chat_id, text=txt)
-        return txt
-    else:
-        return ""
-        #print(before, after)
+    logger.info("help")
 
 def echo(bot, update):
-    print ("echo")
-    f = open('echobotlog.txt', 'a')
-#    f.write(str(update.message.date) + " " + str(update.message.from_user) +"\n")
-    f.write(str(update.message.date) + " " + str(update.message.from_user) +"\n")
-#    f.write(update.message.text.encode('cp1251'))
-    f.write(str(update.message.text + "\n"))
-    f.close()
+    logger.info("echo")
+    with open('echobotlog.txt', 'a', encoding='utf-8') as f:
+        f.write(str(update.message.date) + " " + str(update.message.from_user) +"\n")
+        f.write(str(update.message.text + "\n"))
+        f.close() #not neccesary
 
-   #'этот код от эхо
-   # bot.sendMessage(update.message.chat_id, text=update.message.text)
+    logger.info(update.message.text)
+    logger.info(str(update.message.from_user))
 
-
-    print(update.message.text)
-#    print(update.message.date, update.message.from_user.username, update.message.from_user.first_name, update.message.from_user.last_name)
-    print(update.message.date, str(update.message.from_user))
     s = update.message.text
     myouttext = ""
-    if s.find("Навальный") != -1:
-        myouttext += "Навальный" + " - "+"Овальный" + "\n"
-#        bot.sendMessage(update.message.chat_id, text="Навальный"+" - "+"Овальный")
-#        print("Навальный" + " - "+"Овальный")
-     
-    """
-    rules = {"нька": "хуянька", 
-             "тор": "хуятор", 
-             "нка": "хуянка", 
-             "дор": "хуидор", "сик": "хуесик"
-            }
-    for k in rules:
-        txt = huefy(s, k, rules[k])
-        if txt != "":
-            myouttext += txt + "\n"
-    """
+
     repdict = {"й":"й", "у":"ю", "е":"е",
                "ы":"и", "а":"я", "о":"е", "э":"е", 
 		"я":"я", "и":"и", "ю":"ю",
@@ -109,7 +72,7 @@ def echo(bot, update):
                "Ы":"И", "А":"Я", "О":"Е", "Э":"Е", 
 		"Я":"Я", "И":"И", "Ю":"Ю"
                   }
-#import re
+
     l = s.split()
     outlist = []
     for w in l:
@@ -124,22 +87,17 @@ def echo(bot, update):
     for w in outlist:
         myouttext += w + " "
 
-    if  myouttext != "":
-# не дает отвечать в чат
+    if  myouttext != "": # не дает отвечать в чат
         bot.sendMessage(update.message.chat_id, text=myouttext)
-        print(myouttext)
+        logger.info(myouttext)
 
 def usdrub(bot, update):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
-    page = requests.get("http://www.forexpf.ru/ajaxnews/eurusdrub.php?src=0", headers=headers)
+    page = requests.get("http://www.forexpf.ru/ajaxnews/eurusdrub.php?src=0", headers=HEADERS)
     m = re.search("USD\/RUB Forex - <b>(.*?)<\/b>", page.text)
     bot.sendMessage(update.message.chat_id, text=m.group(1))
 
 def eurrub(bot, update):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
-    page = requests.get("http://www.forexpf.ru/ajaxnews/eurusdrub.php?src=1", headers=headers)
+    page = requests.get("http://www.forexpf.ru/ajaxnews/eurusdrub.php?src=1", headers=HEADERS)
     m = re.search("EUR\/RUB Forex - <b>(.*?)<\/b>", page.text)   
     bot.sendMessage(update.message.chat_id, text=m.group(1))
 
@@ -147,7 +105,7 @@ def trans(bot, update):
     echo(bot, update)
 
 def getweather(url):
-    from lxml import html
+    
     page = requests.get(url)
     tree = html.fromstring(page.content)
 
@@ -186,19 +144,20 @@ def wu(bot, update):
     dc = eval(txt)
 
     txt = "H, t, Rain%, Rain volume\n"
-    for h in range(0, 19):
+
+    range_hours = len(dc['forecast']['days'][0]['hours']) # every time request give us different count of hours
+    for h in range(0, range_hours):
         txt = txt + str(time.localtime(dc['forecast']['days'][0]['hours'][h]['date']['epoch']).tm_hour) + " " + str(dc['forecast']['days'][0]['hours'][h]['temperature']) +  " " + str(dc['forecast']['days'][0]['hours'][h]['pop']) +  " "  + str(dc['forecast']['days'][0]['hours'][h]['liquid_precip'])+  "\n "
-        #print (time.localtime(dc['forecast']['days'][0]['hours'][h]['date']['epoch']).tm_hour, dc['forecast']['days'][0]['hours'][h]['temperature'], dc['forecast']['days'][0]['hours'][h]['pop'], dc['forecast']['days'][0]['hours'][h]['liquid_precip'])
     bot.sendMessage(update.message.chat_id, text=txt)
 
 def error(bot, update, error):
     logger.warn('Update "%s" caused error "%s"' % (update, error))
 
-
 def main():
     # Create the EventHandler and pass it your bot's token.
-    print("Starting app")
+    logger.info("Starting app")
     updater = Updater("XXXXX_TOKEN!!!!!")
+    
 
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
@@ -211,7 +170,6 @@ def main():
     dp.addHandler(CommandHandler("trans", trans))
     dp.addHandler(CommandHandler("weather", weather))
     dp.addHandler(CommandHandler("wu", wu))
-
 
     # on noncommand i.e message - echo the message on Telegram
     dp.addHandler(MessageHandler([Filters.text], echo))
